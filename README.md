@@ -15,7 +15,7 @@ Unlike traditional tools that rely on runtime traffic (OpenTelemetry) or manual 
 
 ### 🚀 Key Features
 
-* ** automated Drift Detection:** Scans repository zipballs to identify orphaned endpoints, method mismatches, and typo-induced errors.
+* **Automated Drift Detection:** Scans repository zipballs to identify orphaned endpoints, method mismatches, and typo-induced errors.
 * **AST-based Parsing:** Custom Regex and logic to parse Express.js, Flask, Next.js, and React `fetch` calls without running the code.
 * **Fuzzy Matching Algorithm:** Implements Levenshtein distance to detect probable matches despite typos (e.g., `/usr/profile` vs `/user/profile`).
 * **Secure Digital Keychain:** Manages multiple GitHub Personal Access Tokens (PAT) using **AES-256-CBC encryption** at rest.

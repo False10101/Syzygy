@@ -1,16 +1,17 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Outlet, Link, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { 
   Squares2X2Icon, 
   PlusCircleIcon, 
-  ChartBarIcon, 
   ClockIcon, 
   ArrowLeftOnRectangleIcon,
-  CpuChipIcon,
   CommandLineIcon,
-  AdjustmentsHorizontalIcon,
-  UserCircleIcon
+  UserCircleIcon,
+  ExclamationTriangleIcon,
+  DevicePhoneMobileIcon,
+  ComputerDesktopIcon,
+  DeviceTabletIcon
 } from '@heroicons/react/24/outline';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -27,7 +28,57 @@ import ScanHistory from './pages/ScanHistory';
 import CommandCenter from './pages/ComandCenter';
 import Profile from './pages/Profile';
 
-// ... (DashboardLayout code remains exactly the same) ...
+// --- MOBILE/TABLET LOCKOUT SCREEN ---
+const MobileLockout = () => (
+  <div className="fixed inset-0 z-[9999] bg-[#030712] text-white flex flex-col items-center justify-center p-6 text-center overflow-hidden font-sans selection:bg-red-500/30">
+      
+      {/* Background Grids & Gradients */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_3px),linear-gradient(to_bottom,#80808012_1px,transparent_3px)] bg-[size:24px_24px] pointer-events-none"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-red-900/20 via-[#030712] to-[#030712] pointer-events-none"></div>
+
+      {/* Main Card */}
+      <div className="relative bg-[#030712]/80 backdrop-blur-xl border border-red-500/20 rounded-2xl p-10 max-w-md w-full shadow-[0_0_50px_rgba(239,68,68,0.15)] flex flex-col items-center">
+          
+          <div className="relative mb-6">
+            <div className="absolute inset-0 bg-red-500 blur-xl opacity-20 animate-pulse rounded-full"></div>
+            <ExclamationTriangleIcon className="w-16 h-16 text-red-500 relative z-10" />
+          </div>
+
+          <h1 className="text-2xl font-bold tracking-tight text-white mb-2">
+            UNSUPPORTED DEVICE
+          </h1>
+          
+          <div className="h-px w-full bg-gradient-to-r from-transparent via-red-500/50 to-transparent my-4"></div>
+
+          <p className="text-gray-400 text-sm leading-relaxed mb-8">
+            <span className="text-red-400 font-mono font-bold">SYZYGY CORE</span> requires a Laptop or Desktop environment. Tablet and Mobile interfaces are restricted.
+          </p>
+
+          <div className="flex items-center justify-center gap-6 opacity-80 w-full">
+            <div className="flex flex-col items-center gap-2 text-red-500/40 grayscale">
+               <div className="flex gap-2">
+                 <DevicePhoneMobileIcon className="w-6 h-6" />
+                 <DeviceTabletIcon className="w-6 h-6" />
+               </div>
+               <span className="text-[10px] uppercase tracking-widest line-through">Restricted</span>
+            </div>
+            
+            <div className="h-8 w-px bg-white/10"></div>
+            
+            <div className="flex flex-col items-center gap-2 text-emerald-400">
+               <ComputerDesktopIcon className="w-8 h-8 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]" />
+               <span className="text-[10px] uppercase tracking-widest font-bold">Laptop / Desktop</span>
+            </div>
+          </div>
+      </div>
+      
+      <div className="absolute bottom-8 text-[10px] text-gray-600 font-mono uppercase tracking-[0.2em]">
+        Error: INVALID_HARDWARE_ID
+      </div>
+  </div>
+);
+
+
 const DashboardLayout = () => {
   const { pathname } = useLocation();
   const { logout } = useAuth();
@@ -98,10 +149,7 @@ const DashboardLayout = () => {
           <div className="px-3 mt-6 mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-600">Operations</div>
           
           <NavItem to="/new-scan" icon={PlusCircleIcon} label="New Scan" />
-          
-          {/* Note: This is strictly for visual indication. Actual navigation happens via code */}
           <NavItem to="/alignment" readOnly={true} icon={CommandLineIcon} label="Alignment View" />
-          
           <NavItem to="/scan-history" icon={ClockIcon} label="Scan History" />
         </nav>
 
@@ -123,6 +171,50 @@ const DashboardLayout = () => {
 
 
 export default function App() {
+  const [isRestricted, setIsRestricted] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  // --- DEVICE DETECTION LOGIC ---
+  useEffect(() => {
+    const checkDevice = () => {
+      const width = window.innerWidth;
+      const ua = navigator.userAgent;
+      
+      // 1. Detect Standard Mobile/Tablet User Agents (Android, iOS)
+      const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+      
+      // 2. Detect iPads requesting Desktop Site (MacIntel + Touch Points)
+      //    Newer iPads often mask as Macintosh. We catch them here.
+      //    Standard MacBooks (laptops) don't have > 0 maxTouchPoints (usually), 
+      //    OR if they do (rare touchscreen macs?), they are still valid Desktop OS.
+      //    However, safe check for iPad: Platform 'MacIntel' AND maxTouchPoints > 2
+      const isIPad = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+
+      // 3. Screen Width Safety Net
+      //    We keep this very low (e.g., < 768px) to catch phones even if UA spoofing happens.
+      //    Standard Laptops (even 11" Air) are > 1000px.
+      //    We allow resizing desktops, but initially block obvious mobile widths.
+      const isTooNarrow = width < 768; 
+
+      if (isMobileUA || isIPad || isTooNarrow) {
+        setIsRestricted(true);
+      } else {
+        setIsRestricted(false);
+      }
+      setChecking(false);
+    };
+
+    checkDevice();
+    window.addEventListener('resize', checkDevice);
+    return () => window.removeEventListener('resize', checkDevice);
+  }, []);
+
+  // Prevent flash of content
+  if (checking) return <div className="h-screen w-screen bg-[#030712]"></div>;
+  
+  // Show lockout screen if restricted
+  if (isRestricted) return <MobileLockout />;
+
   return (
     <BrowserRouter>
       <AuthProvider>
@@ -174,17 +266,10 @@ export default function App() {
 
           <Route path="/" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
             <Route index element={<CommandCenter />} />
-            
             <Route path="new-scan" element={<NewScan />} />
-            
-            {/* Main Alignment View */}
             <Route path="alignment/:uuid" element={<AlignmentView />} />
-            
-            {/* 2. ADDED DETAIL ROUTE */}
             <Route path="alignment/:uuid/detail" element={<AlignmentDetail />} />
-
             <Route path="scan-history" element={<ScanHistory/>} />
-
             <Route path="profile" element={<Profile/>} />
             
             <Route path="analytics" element={<div className="p-10">Analytics Module Loading...</div>} />
